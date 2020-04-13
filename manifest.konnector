@@ -1,14 +1,14 @@
 {
   "version": "1.0.0",
-  "name": "Connector template",
+  "name": "Famileo",
   "type": "konnector",
   "language": "node",
   "icon": "icon.png",
-  "slug": "template",
-  "source": "git@github.com:konnectors/template.git",
-  "editor": "Cozy",
-  "vendor_link": "Link to the target website",
-  "categories": ["other"],
+  "slug": "famileo",
+  "source": "git@github.com:taratatach/cozy-konnector-famileo.git",
+  "editor": "Erwan Guyader",
+  "vendor_link": "https://www.famileo.com",
+  "categories": ["online_services"],
   "fields": {
     "login": {
       "type": "text"
@@ -24,6 +24,9 @@
     }
   },
   "data_types": [
+    "file",
+    "identity",
+    "photo",
     "bill"
   ],
   "screenshots": [],
@@ -37,14 +40,26 @@
     "files": {
       "type": "io.cozy.files"
     },
+    "photo albums": {
+      "type": "io.cozy.photos.albums"
+    },
+    "identities": {
+      "type": "io.cozy.identities"
+    },
+    "contacts": {
+      "type": "io.cozy.contacts"
+    },
+    "groups": {
+      "type": "io.cozy.contacts.groups"
+    },
     "accounts": {
       "type": "io.cozy.accounts",
       "verbs": ["GET"]
     }
   },
   "developer": {
-    "name": "Cozy Cloud",
-    "url": "https://cozy.io"
+    "name": "Erwan Guyader",
+    "url": "https://github.com/taratatach"
   },
   "langs": ["fr", "en"],
   "locales": {
@@ -85,6 +100,6 @@
       }
     }
   },
-  "banksTransactionRegExp": "\\bbooks\\b",
+  "banksTransactionRegExp": "\\bfamileo\\b",
   "manifest_version": "2"
 }
