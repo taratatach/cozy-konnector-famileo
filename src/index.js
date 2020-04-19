@@ -35,8 +35,7 @@ async function start(fields, cozyParameters) {
     await Promise.all([
       fetchGazettes(family, fields),
       fetchContacts(family),
-      fetchPhotos(family, fields),
-      fetchBills()
+      fetchPhotos(family, fields)
     ])
   }
 }
@@ -278,18 +277,4 @@ async function listAllReferencedDocs(doc) {
   }
 
   return list.map(doc => doc.id)
-}
-
-async function fetchBills() {
-  /*
-  await saveBills(documents, fields, {
-    // This is a bank identifier which will be used to link bills to bank operations. These
-    // identifiers should be at least a word found in the title of a bank operation related to this
-    // bill. It is not case sensitive.
-    identifiers: ['books'],
-    sourceAccount: this.accountId,
-    sourceAccountIdentifier: fields.login
-  })
-  */
-  return
 }
