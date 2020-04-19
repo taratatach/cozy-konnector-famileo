@@ -58,14 +58,7 @@ function authenticate(username, password) {
 }
 
 async function fetchFamilies() {
-  const response = await request({
-    method: 'GET',
-    uri: `${baseUrl}/api/user/pad`,
-    headers: {
-      Accept: 'application/json'
-    },
-    body: {}
-  })
+  const response = await request(`${baseUrl}/api/user/pad`)
 
   if (!response || !response.pads.length) {
     log('debug', response, 'no pads found')
@@ -77,11 +70,7 @@ async function fetchFamilies() {
 async function fetchGazettes(family, fields) {
   const response = await request({
     method: 'GET',
-    uri: `${baseUrl}/api/gazettes/${family.pad_id}`,
-    headers: {
-      Accept: 'application/json'
-    },
-    body: {}
+    uri: `${baseUrl}/api/gazettes/${family.pad_id}`
   })
 
   if (!response || !response.gazettes.length) {
@@ -114,14 +103,9 @@ function parseGazettes(docs) {
 }
 
 async function fetchContacts(family) {
-  const response = await request({
-    method: 'GET',
-    uri: `${baseUrl}/api/families/${family.pad_id}/members`,
-    headers: {
-      Accept: 'application/json'
-    },
-    body: {}
-  })
+  const response = await request(
+    `${baseUrl}/api/families/${family.pad_id}/members`
+  )
 
   if (!response || !response.family_members.length) {
     // error
@@ -194,19 +178,13 @@ function buildContactGroups(family) {
 
 async function fetchPhotos(family, fields) {
   const response = await request({
-    method: 'GET',
     uri: `${baseUrl}/api/galleries/${family.pad_id}`,
-    headers: {
-      Accept: 'application/json'
-    },
     qs: {
       type: 'all'
-    },
-    body: {}
+    }
   })
 
   if (!response || !response.gallery.length) {
-    // error
     log('debug', response, 'no photos found')
     return
   }
@@ -214,20 +192,14 @@ async function fetchPhotos(family, fields) {
   let documents = response.gallery
   while (documents.length < response.nb_all_image) {
     const response = await request({
-      method: 'GET',
       uri: `${baseUrl}/api/galleries/${family.pad_id}`,
-      headers: {
-        Accept: 'application/json'
-      },
       qs: {
         type: 'all',
         timestamp: documents[documents.length - 1].created_at.replace(' ', '+')
-      },
-      body: {}
+      }
     })
 
     if (!response || !response.gallery.length) {
-      // error
       log('debug', response, 'no photos found')
       break
     }
