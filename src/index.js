@@ -78,7 +78,7 @@ async function fetchGazettes(family, fields) {
   }
 
   log('info', 'Parsing list of gazettes')
-  const documents = parseGazettes(response.gazettes)
+  const documents = response.gazettes.map(parseGazette)
 
   log('info', 'Saving gazettes to Cozy')
   await saveFiles(documents, fields, {
@@ -87,18 +87,16 @@ async function fetchGazettes(family, fields) {
   })
 }
 
-function parseGazettes(docs) {
-  return docs.map(doc => ({
+function parseGazette(doc) {
+  return {
     fileurl: doc.pdf,
-    filename: `Gazette du ${utils.formatDate(
-      new Date(doc.created_at + 'Z')
-    )}.pdf`,
+    filename: `Gazette du ${utils.formatDate(new Date(doc.created_at))}.pdf`,
     vendor: VENDOR,
     metadata: {
       importDate: new Date(),
       version: 1
     }
-  }))
+  }
 }
 
 async function fetchContacts(family) {
@@ -113,7 +111,7 @@ async function fetchContacts(family) {
   }
 
   log('info', 'Parsing list of contacts')
-  const documents = parseContacts(response.family_members)
+  const documents = response.family_members.map(parseContact)
 
   log('info', 'Saving contacts to Cozy')
   const contactsDocs = await updateOrCreate(documents, 'io.cozy.contacts', [
@@ -138,8 +136,8 @@ async function fetchContacts(family) {
   }
 }
 
-function parseContacts(docs) {
-  return docs.map(doc => ({
+function parseContact(doc) {
+  return {
     name: {
       familyName: doc.lastname,
       givenName: doc.firstname
@@ -153,7 +151,7 @@ function parseContacts(docs) {
         id: doc.id
       }
     }
-  }))
+  }
 }
 
 function buildContactGroups(family) {
@@ -212,7 +210,7 @@ async function fetchPhotos(family, fields) {
   }
 
   const albumName = `Famileo - Famille de ${family.pad_name}`
-  const picturesObjects = parsePhotos(documents)
+  const picturesObjects = documents.map(parsePhoto)
   const picturesDocs = await saveFiles(picturesObjects, fields, {
     concurrency: 8,
     contentType: 'image/jpeg',
@@ -234,30 +232,28 @@ async function fetchPhotos(family, fields) {
   await cozyClient.data.addReferencedFiles(albumDoc, newFileIds)
 }
 
-function parsePhotos(docs) {
-  return docs.map(doc => {
-    log('debug', doc, 'photo')
-    log('debug', doc.image, 'url')
-    log('debug', doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/), 'id')
+function parsePhoto(doc) {
+  log('debug', doc, 'Parsing photo')
+  log('debug', doc.image, 'url')
+  log('debug', doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/), 'id')
 
-    const fileurl = doc.image
-    const extension = path.extname(fileurl)
-    const famileo_id = doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/)[1]
-    const time = new Date(doc.created_at + 'Z')
-    const author = `${doc.firstname} ${doc.lastname}`.trim().replace(/ /g, '_')
-    const filename = `${format(
-      time,
-      'yyyy_MM_dd'
-    )}-${author}-${famileo_id}${extension}`
-    return {
-      fileurl,
-      filename,
-      famileo_id,
-      fileAttributes: {
-        lastModifiedDate: time
-      }
+  const fileurl = doc.image
+  const extension = path.extname(fileurl)
+  const famileo_id = doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/)[1]
+  const time = new Date(doc.created_at + 'Z')
+  const author = `${doc.firstname} ${doc.lastname}`.trim().replace(/ /g, '_')
+  const filename = `${format(
+    time,
+    'yyyy_MM_dd'
+  )}-${author}-${famileo_id}${extension}`
+  return {
+    fileurl,
+    filename,
+    famileo_id,
+    fileAttributes: {
+      lastModifiedDate: time
     }
-  })
+  }
 }
 
 async function listAllReferencedDocs(doc) {
