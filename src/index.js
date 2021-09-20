@@ -1,10 +1,10 @@
 const {
   BaseKonnector,
   requestFactory,
-  cozyClient,
-  signin,
   saveFiles,
   updateOrCreate,
+  cozyClient,
+  signin,
   log,
   utils
 } = require('cozy-konnector-libs')
@@ -67,10 +67,7 @@ async function fetchFamilies() {
 }
 
 async function fetchGazettes(family, fields) {
-  const response = await request({
-    method: 'GET',
-    uri: `${baseUrl}/api/gazettes/${family.pad_id}`
-  })
+  const response = await request(`${baseUrl}/api/gazettes/${family.pad_id}`)
 
   if (!response || !response.gazettes.length) {
     log('debug', response, 'no gazettes found')
@@ -93,8 +90,9 @@ function parseGazette(doc) {
     filename: `Gazette du ${utils.formatDate(new Date(doc.created_at))}.pdf`,
     vendor: VENDOR,
     metadata: {
-      importDate: new Date(),
-      version: 1
+      [VENDOR]: {
+        gazette_id: doc.id
+      }
     }
   }
 }
@@ -114,26 +112,10 @@ async function fetchContacts(family) {
   const documents = response.family_members.map(parseContact)
 
   log('info', 'Saving contacts to Cozy')
-  const contactsDocs = await updateOrCreate(documents, 'io.cozy.contacts', [
+  await updateOrCreate(documents, 'io.cozy.contacts', [
     'name.familyName',
     'name.givenName'
   ])
-
-  log('info', 'Creating or updating contact groups')
-  const contactsIds = contactsDocs.filter(doc => doc).map(doc => doc._id)
-  const groupDocs = await updateOrCreate(
-    buildContactGroups(family),
-    'io.cozy.contacts.groups',
-    ['name']
-  )
-
-  for (const groupDoc of groupDocs) {
-    const referencedContactsIds = await listAllReferencedDocs(groupDoc)
-    const newContactsIds = contactsIds.filter(
-      id => !referencedContactsIds.includes(id)
-    )
-    await cozyClient.data.addReferencedFiles(groupDoc, newContactsIds)
-  }
 }
 
 function parseContact(doc) {
@@ -145,118 +127,153 @@ function parseContact(doc) {
     birthday: doc.birthday.split(' ')[0],
     email: [{ address: doc.email, type: 'home', label: 'Personnel' }],
     metadata: {
-      importDate: new Date(),
-      version: 1,
       [VENDOR]: {
-        id: doc.id
+        family_member_id: doc.id
       }
     }
   }
-}
-
-function buildContactGroups(family) {
-  return [
-    {
-      name: 'Famille',
-      metadata: {
-        importDate: new Date(),
-        version: 1
-      }
-    },
-    {
-      name: `Famille de ${family.pad_name}`,
-      metadata: {
-        importDate: new Date(),
-        version: 1
-      }
-    }
-  ]
 }
 
 async function fetchPhotos(family, fields) {
-  const response = await request({
-    uri: `${baseUrl}/api/galleries/${family.pad_id}`,
-    qs: {
-      type: 'all'
-    }
-  })
+  log('info', 'Fetching list of posts')
+  const posts = await fetchAllPosts(family)
+  log('info', `Found ${posts.length} posts`)
 
-  if (!response || !response.gallery.length) {
-    log('debug', response, 'no photos found')
-    return
-  }
-
-  let documents = response.gallery
-  while (documents.length < response.nb_all_image) {
-    const response = await request({
-      uri: `${baseUrl}/api/galleries/${family.pad_id}`,
-      qs: {
-        type: 'all',
-        timestamp: documents[documents.length - 1].created_at.replace(' ', '+')
-      }
-    })
-
-    if (!response || !response.gallery.length) {
-      log('debug', response, 'no photos found')
-      break
-    }
-
-    documents = documents.concat(response.gallery)
-  }
-
-  if (!documents.length) {
+  log('info', 'Parsing list of posts')
+  const picturesObjects = posts.map(parsePost).filter(o => o)
+  if (!picturesObjects.length) {
     log('debug', 'no photos to save')
     return
   }
 
+  log('info', 'Looking for photos album')
   const albumName = `Famileo - Famille de ${family.pad_name}`
-  const picturesObjects = documents.map(parsePhoto)
-  const picturesDocs = await saveFiles(picturesObjects, fields, {
+  const album = await findOrCreateAlbum(albumName)
+  log('debug', 'Using album', { album })
+  // TODO: wip
+  //const albums = []
+
+  const pictures = await saveFiles(picturesObjects, fields, {
     concurrency: 8,
     contentType: 'image/jpeg',
-    fileIdAttributes: ['famileo_id'],
     subPath: path.join(family.pad_name, 'Photos')
   })
-  const picturesIds = picturesDocs
-    .filter(doc => doc && doc.fileDocument)
-    .map(doc => doc.fileDocument._id)
+  log('info', `${pictures.length} photos processed`)
 
-  const [albumDoc] = await updateOrCreate(
-    [{ name: albumName, created_at: family.created_at }],
+  const referencedFileIds = await listAllReferencedDocs(album)
+  const newFiles = pictures
+    .map(picture => picture.fileDocument)
+    .filter(file => file && !referencedFileIds.includes(file._id))
+  log('info', `Adding ${newFiles.length} photos to album`)
+  await cozyClient.data.addReferencedFiles(
+    album,
+    newFiles.map(file => file._id)
+  )
+}
+
+async function fetchAllPosts(family) {
+  let response = await request({
+    uri: `${baseUrl}/api/families/${family.pad_id}/posts`,
+    qs: { type: 'all' }
+  })
+
+  if (!response || !response.familyWall || !response.familyWall.length) {
+    log('debug', response, 'no posts found')
+    return
+  }
+
+  let posts = []
+  while (response && response.familyWall && response.familyWall.length) {
+    posts = posts.concat(response.familyWall)
+
+    response = await request({
+      uri: `${baseUrl}/api/families/${family.pad_id}/posts`,
+      qs: {
+        timestamp: posts[posts.length - 1].date
+      }
+    })
+  }
+
+  return posts
+}
+
+async function findOrCreateAlbum(name) {
+  if (!name) {
+    log('error', 'Missing album name')
+    return
+  }
+
+  const matchingAlbums = await utils.queryAll('io.cozy.photos.albums', {
+    name
+  })
+
+  if (matchingAlbums.length) {
+    return matchingAlbums[0]
+  }
+
+  log('info', 'Album not found. Creating it')
+  const created_at = new Date().toISOString()
+  const [album] = await updateOrCreate(
+    [{ name, created_at }],
     'io.cozy.photos.albums',
     ['name']
   )
-
-  const referencedFileIds = await listAllReferencedDocs(albumDoc)
-  const newFileIds = picturesIds.filter(id => !referencedFileIds.includes(id))
-  await cozyClient.data.addReferencedFiles(albumDoc, newFileIds)
+  return album
 }
 
-function parsePhoto(doc) {
-  log('debug', doc, 'Parsing photo')
-  log('debug', doc.image, 'url')
-  log('debug', doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/), 'id')
+function parsePost(doc) {
+  log('debug', doc, 'Parsing post')
+  log('debug', doc.full_image, 'url')
 
-  const fileurl = doc.image
+  const {
+    full_image: fileurl,
+    wall_post_id: post_id,
+    date: creationDate,
+    updated_at: updateDate,
+    author_name,
+    author_id,
+    gazette_id,
+    text
+  } = doc
+
+  if (!fileurl) {
+    log('debug', 'Skipping post without image')
+    return
+  }
+
   const extension = path.extname(fileurl)
-  const famileo_id = doc.image.match(/\/\d{4}\/\d{2}\/(.*)_/)[1]
-  const time = new Date(doc.created_at + 'Z')
-  const author = `${doc.firstname} ${doc.lastname}`.trim().replace(/ /g, '_')
-  const filename = `${format(
-    time,
+  const created_at = new Date(creationDate + 'Z')
+  const updated_at = new Date(updateDate + 'Z')
+  const author = author_name.trim().replace(/ /g, '_')
+  const filename = `${post_id}-${format(
+    created_at,
     'yyyy_MM_dd'
-  )}-${author}-${famileo_id}${extension}`
+  )}-${author}${extension}`
+
   return {
     fileurl,
     filename,
-    famileo_id,
     fileAttributes: {
-      lastModifiedDate: time
+      post_id,
+      created_at,
+      lastModifiedDate: updated_at
+    },
+    metadata: {
+      [VENDOR]: {
+        post_id,
+        author_id,
+        author_name,
+        gazette_id,
+        created_at,
+        updated_at,
+        text
+      }
     }
   }
 }
 
 async function listAllReferencedDocs(doc) {
+  log('info', 'Listing photos within album')
   let list = []
   let result = {
     links: {
@@ -265,11 +282,13 @@ async function listAllReferencedDocs(doc) {
       }/relationships/references`
     }
   }
-  while (result.links.next) {
+  while (result.links && result.links.next) {
     result = await cozyClient.fetchJSON('GET', result.links.next, null, {
       processJSONAPI: false
     })
-    list = list.concat(result.data)
+    if (result.data) {
+      list = list.concat(result.data)
+    }
   }
 
   return list.map(doc => doc.id)

@@ -16,6 +16,25 @@
     "password": {
       "type": "password"
     },
+    "albumType": {
+      "type": "dropdown",
+      "label": "albumType",
+      // FIXME: find way to localize those values
+      "options": [
+        {
+          "name": "One global album",
+          "value": "global"
+        },
+        {
+          "name": "One album per gazette",
+          "value": "gazette"
+        },
+        {
+          "name": "No albums",
+          "value": "none"
+        }
+      ]
+    },
     "advancedFields": {
       "folderPath": {
         "advanced": true,
@@ -31,12 +50,6 @@
   ],
   "screenshots": [],
   "permissions": {
-    "bank operations": {
-      "type": "io.cozy.bank.operations"
-    },
-    "bills": {
-      "type": "io.cozy.bills"
-    },
     "files": {
       "type": "io.cozy.files"
     },
@@ -49,12 +62,8 @@
     "contacts": {
       "type": "io.cozy.contacts"
     },
-    "groups": {
-      "type": "io.cozy.contacts.groups"
-    },
     "accounts": {
-      "type": "io.cozy.accounts",
-      "verbs": ["GET"]
+      "type": "io.cozy.accounts"
     }
   },
   "developer": {
@@ -64,17 +73,25 @@
   "langs": ["fr", "en"],
   "locales": {
     "fr": {
-      "short_description": "Récupère la liste de livres",
-      "long_description": "Récupère la liste de livre sur le site exemple",
+      "fields": {
+        "albumType": {
+          "label": "Type d'album"
+        }
+      },
+      "short_description": "Récupère vos gazettes et photos",
+      "long_description": "Récupère l'ensemble des gazettes au format PDF ainsi que toutes les photos postées pour chacune des familles enregistrées dans votre compte Famileo",
       "permissions": {
-        "bank operations": {
-          "description": "Utilisé pour relier les factures à des operations bancaires"
-        },
-        "bills": {
-          "description": "Utilisé pour sauver les données des factures"
-        },
         "files": {
-          "description": "Utilisé pour sauvegarder les factures"
+          "description": "Utilisé pour sauvegarder les gazettes et les photos"
+        },
+        "photo_albums": {
+          "description": "Utilisé pour grouper vos photos dans des albums"
+        },
+        "identities": {
+          "description": "Utilisé pour créer une fiche personnelle avec les informations de votre compte"
+        },
+        "contacts": {
+          "description": "Utilisé pour sauvegarder les contacts des membres de votre famille"
         },
         "accounts": {
           "description": "Utilisé pour obtenir les données du compte"
@@ -82,17 +99,25 @@
       }
     },
     "en": {
-      "short_description": "Fetch a list of books",
-      "long_description": "Fetch a list of books from the example website",
+      "fields": {
+        "albumType": {
+          "label": "Album type"
+        }
+      },
+      "short_description": "Fetch your gazettes and photos",
+      "long_description": "Fetch",
       "permissions": {
-        "bank operations": {
-          "description": "Required to link bank operations to bills"
-        },
-        "bills": {
-          "description": "Required to save the bills data"
-        },
         "files": {
-          "description": "Required to save the bills"
+          "description": "Utilisé pour sauvegarder les gazettes et les photos"
+        },
+        "photo_albums": {
+          "description": "Utilisé pour grouper vos photos dans des albums"
+        },
+        "identities": {
+          "description": "Utilisé pour créer une fiche personnelle avec les informations de votre compte"
+        },
+        "contacts": {
+          "description": "Utilisé pour sauvegarder les contacts des membres de votre famille"
         },
         "accounts": {
           "description": "Required to get the account's data"
